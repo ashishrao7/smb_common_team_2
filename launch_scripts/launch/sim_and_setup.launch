@@ -4,7 +4,7 @@
     <!-- Load robot description for controller -->
     <include file="$(find smb_gazebo)/launch/sim.launch">
       <arg name="launch_gazebo_gui"            value="true"/>
-      <arg name="world"                        value="big_map_summer_school"/>
+      <arg name="world"                        value="big_map_summer_school_noramp"/>
     </include>
 
     <include file="$(find smb_msf_graph)/launch/smb_msf_graph.launch">

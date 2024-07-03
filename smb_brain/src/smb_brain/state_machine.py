@@ -263,6 +263,7 @@ class waitSomeTime(State):
 class killExplore(State):
     def __init__(self):
         State.__init__(self, outcomes=['success'])
+        self.listener = tf.TransformListener()
         self.base_link_frame_id = rospy.get_param('~base_link_frame', 'base_link')
         self.planning_frame_id = rospy.get_param('~plannin_frame', 'world_graph_msf')
 
@@ -285,7 +286,7 @@ class killExplore(State):
 class timeSupervisor(State):
     def __init__(self):
         State.__init__(self, outcomes=['success', 'time_up'])
-        self.explore_time_limit = rospy.get_param('~exploration_time_limit', 30.0)
+        self.explore_time_limit = rospy.get_param('~exploration_time_limit', 10.0)
         yoyo =  Time
 
         
@@ -298,6 +299,45 @@ class timeSupervisor(State):
             if used_time.data.to_sec() > self.explore_time_limit:
                 return 'time_up'
             sleepy_rate.sleep()
+
+
+class go_home(State):
+    def __init__(self):
+        State.__init__(self, outcomes=['success'])
+        self.base_link_frame_id = rospy.get_param('~base_link_frame', 'base_link')
+        self.planning_frame_id = rospy.get_param('~plannin_frame', 'world_graph_msf')
+
+    def goal_point_spammer(self):
+        global home_point
+        go_here = PointStamped()
+        go_here.header.stamp = rospy.Time.now()
+        go_here.header.frame_id = self.planning_frame_id
+        go_here.point.x=home_point[0]
+        go_here.point.x=home_point[1]
+        go_here.point.x=home_point[2]
+        pub = rospy.Publisher('/goal_point', PointStamped, queue_size=10)
+        spammy = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            pub.publish(go_here)
+            spammy.sleep()
+
+    def execute(self, ud):
+        spammin = threading.Thread(target=self.goal_point_spammer)
+        spammin.start()
+        uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
+        roslaunch.configure_logging(uuid)
+        cli_args = [rospkg.RosPack().get_path('far_planner')+ '/launch/far_planner.launch','smb:=true','odom_topic:=/transformed_odom', 'world_frame:=world_graph_msf', 'scan_cloud_topic:=/registered_scan']
+        roslaunch_args = cli_args[1:]
+        roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
+
+        parent = roslaunch.parent.ROSLaunchParent(uuid, roslaunch_file)
+
+        parent.start()
+
+        rospy.sleep(200)
+        return 'success'
+
+        
 
 
 
@@ -322,8 +362,8 @@ def main():
                            transitions={'time_up':'STOP_EXPLORE',
                                         'success':'STOP_EXPLORE'})
         StateMachine.add('STOP_EXPLORE', killExplore(),
-                           transitions={'success':'WAIT_AGAIN'})
-        StateMachine.add('WAIT_AGAIN', waitSomeTime(),
+                           transitions={'success':'GO_HOME'})
+        StateMachine.add('GO_HOME', go_home(),
                            transitions={'success':'EXPLORE'})
 
     outcome = sm.execute()
