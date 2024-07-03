@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import threading
+
+from cv2 import broadcast
 import rospy
 import actionlib
 from smach import State,StateMachine
@@ -16,6 +18,7 @@ import time
 from geometry_msgs.msg import PoseStamped
 import os
 import roslaunch
+from std_msgs.msg import Time
 
 # change Pose to the correct frame 
 def changePose(waypoint,target_frame):
@@ -43,6 +46,7 @@ def changePose(waypoint,target_frame):
 #Path for saving and retreiving the pose.csv file 
 output_file_path = rospkg.RosPack().get_path('follow_waypoints')+"/saved_path/pose.csv"
 waypoints = []
+home_point = None
 
 class FollowPath(State):
     def __init__(self):
@@ -215,8 +219,26 @@ class PathComplete(State):
 class StartExplore(State):
     def __init__(self):
         State.__init__(self, outcomes=['success'])
+        self.tf = TransformListener()
+        self.listener = tf.TransformListener()
+        self.base_link_frame_id = rospy.get_param('~base_link_frame', 'base_link')
+        self.planning_frame_id = rospy.get_param('~plannin_frame', 'world_graph_msf')
 
     def execute(self, ud):
+        global home_point
+        now = rospy.Time.now()
+        self.listener.waitForTransform(self.planning_frame_id, self.base_link_frame_id, now, rospy.Duration(4.0))
+        home_point,rot = self.listener.lookupTransform(self.planning_frame_id, self.base_link_frame_id, now)
+
+        package = 'smb_brain'
+        executable = 'time_keeper'
+        node = roslaunch.core.Node(package, executable)
+
+        launch = roslaunch.scriptapi.ROSLaunch()
+        launch.start()
+
+        process = launch.launch(node)
+        
         uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
         roslaunch.configure_logging(uuid)
         cli_args = [rospkg.RosPack().get_path('smb_exploration')+ '/launch/cmu/smb_rss_tare.launch','rviz:=false']
@@ -226,6 +248,8 @@ class StartExplore(State):
         parent = roslaunch.parent.ROSLaunchParent(uuid, roslaunch_file)
 
         parent.start()
+
+        
         return 'success'
 
 class waitSomeTime(State):
@@ -239,10 +263,44 @@ class waitSomeTime(State):
 class killExplore(State):
     def __init__(self):
         State.__init__(self, outcomes=['success'])
+        self.base_link_frame_id = rospy.get_param('~base_link_frame', 'base_link')
+        self.planning_frame_id = rospy.get_param('~plannin_frame', 'world_graph_msf')
+
 
     def execute(self, ud):
         os.system('rosnode kill /sensor_coverage_planner/tare_planner_node')
+        now = rospy.Time.now()
+        self.listener.waitForTransform(self.planning_frame_id, self.base_link_frame_id, now, rospy.Duration(4.0))
+        cur_point, rot = self.listener.lookupTransform(self.planning_frame_id, self.base_link_frame_id, now)
+        go_here = PointStamped()
+        go_here.header.stamp = rospy.Time.now()
+        go_here.header.frame_id = self.planning_frame_id
+        go_here.point.x=cur_point[0]
+        go_here.point.x=cur_point[1]
+        go_here.point.x=cur_point[2]
+        pub = rospy.Publisher('goal_point', PointStamped, queue_size=10)
+        pub.publish(go_here)
         return 'success'
+    
+class timeSupervisor(State):
+    def __init__(self):
+        State.__init__(self, outcomes=['success', 'time_up'])
+        self.explore_time_limit = rospy.get_param('~exploration_time_limit', 30.0)
+        yoyo =  Time
+
+        
+
+    def execute(self, ud):
+        sleepy_rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            used_time = rospy.wait_for_message('/used_time', Time)
+
+            if used_time.data.to_sec() > self.explore_time_limit:
+                return 'time_up'
+            sleepy_rate.sleep()
+
+
+
 
 def main():
     rospy.init_node('state_machine')
@@ -259,9 +317,10 @@ def main():
         # StateMachine.add('PATH_COMPLETE', PathComplete(),
         #                    transitions={'success':'GET_PATH'})
         StateMachine.add('EXPLORE', StartExplore(),
-                           transitions={'success':'WAIT'})
-        StateMachine.add('WAIT', waitSomeTime(),
-                           transitions={'success':'STOP_EXPLORE'})
+                           transitions={'success':'SUPERVISOR'})
+        StateMachine.add('SUPERVISOR', timeSupervisor(),
+                           transitions={'time_up':'STOP_EXPLORE',
+                                        'success':'STOP_EXPLORE'})
         StateMachine.add('STOP_EXPLORE', killExplore(),
                            transitions={'success':'WAIT_AGAIN'})
         StateMachine.add('WAIT_AGAIN', waitSomeTime(),
