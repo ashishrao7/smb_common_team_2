@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<launch>
+
+    <!-- Load robot description for controller -->
+    <include file="$(find smb_gazebo)/launch/sim.launch">
+      <arg name="launch_gazebo_gui"            value="true"/>
+    </include>
+
+    <include file="$(find smb_msf_graph)/launch/smb_msf_graph.launch">
+      <arg name="use_sim_time"            value="true"/>
+    </include>
+
+    <include file="$(find smb_navigation)/launch/navigate2d_cmu.launch">
+      <arg name="use_msf"            value="true"/>
+      <arg name="global_frame"       value="world_graph_msf"/>
+      <arg name="state_estimation_topic"  value="/transformed_odom"/>
+      <arg name="launch_far_planner"  value="false"/>
+    </include>
+
+</launch>
