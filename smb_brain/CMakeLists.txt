@@ -19,7 +19,7 @@ catkin_package(
 )
 
 catkin_install_python(
-  PROGRAMS nodes/state_machine
+  PROGRAMS nodes/state_machine nodes/time_keeper
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

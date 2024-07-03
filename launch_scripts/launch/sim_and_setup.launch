@@ -14,7 +14,7 @@
       <arg name="use_msf"            value="true"/>
       <arg name="global_frame"       value="world_graph_msf"/>
       <arg name="state_estimation_topic"  value="/transformed_odom"/>
-      <arg name="launch_far_planner"  value="false"/>
+      <arg name="launch_far_planner"  value="true"/>
     </include>
 
 </launch>
