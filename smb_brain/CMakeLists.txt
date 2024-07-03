@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 
-project(follow_waypoints)
+project(smb_brain)
 
 find_package(catkin REQUIRED COMPONENTS
   actionlib
@@ -19,7 +19,7 @@ catkin_package(
 )
 
 catkin_install_python(
-  PROGRAMS nodes/follow_waypoints
+  PROGRAMS nodes/state_machine
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

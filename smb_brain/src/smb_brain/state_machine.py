@@ -14,6 +14,8 @@ import rospkg
 import csv
 import time
 from geometry_msgs.msg import PoseStamped
+import os
+import roslaunch
 
 # change Pose to the correct frame 
 def changePose(waypoint,target_frame):
@@ -209,20 +211,60 @@ class PathComplete(State):
         rospy.loginfo('##### REACHED FINISH GATE #####')
         rospy.loginfo('###############################')
         return 'success'
+    
+class StartExplore(State):
+    def __init__(self):
+        State.__init__(self, outcomes=['success'])
+
+    def execute(self, ud):
+        uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
+        roslaunch.configure_logging(uuid)
+        cli_args = [rospkg.RosPack().get_path('smb_exploration')+ '/launch/cmu/smb_rss_tare.launch','rviz:=false']
+        roslaunch_args = cli_args[1:]
+        roslaunch_file = [(roslaunch.rlutil.resolve_launch_arguments(cli_args)[0], roslaunch_args)]
+
+        parent = roslaunch.parent.ROSLaunchParent(uuid, roslaunch_file)
+
+        parent.start()
+        return 'success'
+
+class waitSomeTime(State):
+    def __init__(self):
+        State.__init__(self, outcomes=['success'])
+
+    def execute(self, ud):
+        rospy.sleep(10)
+        return 'success'
+    
+class killExplore(State):
+    def __init__(self):
+        State.__init__(self, outcomes=['success'])
+
+    def execute(self, ud):
+        os.system('rosnode kill /sensor_coverage_planner/tare_planner_node')
+        return 'success'
 
 def main():
-    rospy.init_node('follow_waypoints')
+    rospy.init_node('state_machine')
 
     sm = StateMachine(outcomes=['success'])
 
     with sm:
-        StateMachine.add('GET_PATH', GetPath(),
-                           transitions={'success':'FOLLOW_PATH'},
-                           remapping={'waypoints':'waypoints'})
-        StateMachine.add('FOLLOW_PATH', FollowPath(),
-                           transitions={'success':'PATH_COMPLETE'},
-                           remapping={'waypoints':'waypoints'})
-        StateMachine.add('PATH_COMPLETE', PathComplete(),
-                           transitions={'success':'GET_PATH'})
+        # StateMachine.add('GET_PATH', GetPath(),
+        #                    transitions={'success':'FOLLOW_PATH'},
+        #                    remapping={'waypoints':'waypoints'})
+        # StateMachine.add('FOLLOW_PATH', FollowPath(),
+        #                    transitions={'success':'PATH_COMPLETE'},
+        #                    remapping={'waypoints':'waypoints'})
+        # StateMachine.add('PATH_COMPLETE', PathComplete(),
+        #                    transitions={'success':'GET_PATH'})
+        StateMachine.add('EXPLORE', StartExplore(),
+                           transitions={'success':'WAIT'})
+        StateMachine.add('WAIT', waitSomeTime(),
+                           transitions={'success':'STOP_EXPLORE'})
+        StateMachine.add('STOP_EXPLORE', killExplore(),
+                           transitions={'success':'WAIT_AGAIN'})
+        StateMachine.add('WAIT_AGAIN', waitSomeTime(),
+                           transitions={'success':'EXPLORE'})
 
     outcome = sm.execute()
