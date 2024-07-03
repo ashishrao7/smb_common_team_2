@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>launch_scripts</name>
+  <version>0.0.0</version>
+  <description>Launch scripts for the smb bot from team2</description>
+  <maintainer email="diegobo@eth.ch">Diego Bolliger</maintainer>
+
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <exec_depend>smb_gazebo</exec_depend>
+  <exec_depend>smb_msf_graph</exec_depend>
+  <exec_depend>smb_navigation</exec_depend>
+  <exec_depend>smb_exploration</exec_depend>
+</package>
