@@ -1,8 +1,7 @@
 <launch>
-  <!-- <arg name="log_path" default="/workspaces/rss_workspace/object_positions_log.csv"/> -->
-
+  <arg name="artifact_file" default="/workspaces/rss_workspace/object_positions_log.csv"/>
 
   <node name="smb_artifact_node" pkg="smb_artifact" type="smb_artifact_node" output="screen">
-    <!-- <param name="log_file" type="string" value="$(arg log_path)" /> -->
+    <param name="artifact_file" value="$(arg artifact_file)" />
   </node>
 </launch>

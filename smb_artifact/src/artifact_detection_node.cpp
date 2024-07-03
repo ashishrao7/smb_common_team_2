@@ -9,16 +9,14 @@
 
 class ArtifactDetector {
 public:
-  ArtifactDetector(ros::NodeHandle n) : nh_(n) {
+  ArtifactDetector(ros::NodeHandle n, ros::NodeHandle np) : nh_(n), nh_priv_(np) {
     sub_ = n.subscribe("/object_detector/detection_info", 1000, &ArtifactDetector::detectionCallback, this);
     tf_listener_ = std::make_unique<tf2_ros::TransformListener>(tf_buffer_);
 
-     // String to store the parameter value
-
-    // Retrieve the parameter value
 
     std::string filename="object_positions_log.csv";
-    // filename = nh_.getParam("log_file", filename);
+    // filename = nh_.getParam("artifact_file", filename);
+    nh_priv_.param<std::string>("artifact_file", filename, filename);
     std::cout << "writing to file: " << filename << "\n";
     log_file.open(filename);
     if (!log_file.is_open()) {
@@ -89,6 +87,7 @@ void detectionCallback(const object_detection_msgs::ObjectDetectionInfoArray::Co
 
 private:
   ros::NodeHandle nh_;
+  ros::NodeHandle nh_priv_;
   ros::Subscriber sub_;
   tf2_ros::Buffer tf_buffer_;
   std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
@@ -100,8 +99,9 @@ int main(int argc, char **argv)
 {
   ros::init(argc, argv, "artifact_detection_node");
   ros::NodeHandle n;
+  ros::NodeHandle np("~");
 
-  ArtifactDetector detector(n);
+  ArtifactDetector detector(n, np);
 
   ros::spin();
 
