@@ -1,0 +1,6 @@
+<launch>
+
+  <node name="artifact_detection_node" pkg="smb_my_test" type="artifact_detection_node" output="screen">
+    
+  </node>
+</launch>
